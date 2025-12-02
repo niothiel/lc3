@@ -1,0 +1,8 @@
+{
+    "files.insertFinalNewline": true,
+    "editor.formatOnSave": true,
+    "C_Cpp.errorSquiggles": "enabled",
+    "C_Cpp.inlayHints.parameterNames.enabled": true,
+    "C_Cpp.clang_format_fallbackStyle": "WebKit",
+    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+}

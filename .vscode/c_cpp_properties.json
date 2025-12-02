@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "compilerPath": "/usr/bin/gcc",
+            "intelliSenseMode": "macos-clang-arm64",
+            "cStandard": "c99",
+            "compilerArgs": [
+                "-g",
+                "-Werror",
+                "-Wall",
+                "-Wextra",
+                "-pedantic"
+            ]
+        }
+    ],
+    "version": 4,
+    "enableConfigurationSquiggles": true
+}
