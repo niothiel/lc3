@@ -7,4 +7,4 @@ build:
 
 .PHONY: run
 run:
-	./lc3 ./programs/hello_world.obj
+	./lc3 run prog/counter.s

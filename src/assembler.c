@@ -41,8 +41,7 @@ static char* skip_whitespace(char* string)
     if (string == NULL)
         return NULL;
 
-    char c = string[0];
-    while (c == ' ' || c == '\t')
+    while (*string == ' ' || *string == '\t')
         string++;
     return string;
 }
@@ -95,13 +94,29 @@ token_t lexer_next_token(lexer_t* lexer)
     }
 }
 
-void assert_register_token(lexer_t* lexer, token_t token)
+static void assert_register_token(lexer_t* lexer, token_t token)
 {
     if (token.type != REGISTER)
         fatalf("Expected register, but was: %d in line: %s\n", token.type, lexer->line);
 }
 
-void process_ADD(program_state_t* program, lexer_t* lexer)
+static void assert_scalar_token(lexer_t* lexer, token_t token)
+{
+    if (token.type != SCALAR)
+        fatalf("Expected scalar, but was: %d in line: %s\n", token.type, lexer->line);
+}
+
+static void process_NOT(program_state_t* program, lexer_t* lexer)
+{
+    token_t dst_token = lexer_next_token(lexer);
+    assert_register_token(lexer, dst_token);
+    token_t src_token = lexer_next_token(lexer);
+    assert_register_token(lexer, dst_token);
+    program->program[program->pc] = emit_NOT(dst_token.value.value, src_token.value.value);
+    program->pc++;
+}
+
+static void process_ADD(program_state_t* program, lexer_t* lexer)
 {
     token_t dst_token = lexer_next_token(lexer);
     assert_register_token(lexer, dst_token);
@@ -119,13 +134,163 @@ void process_ADD(program_state_t* program, lexer_t* lexer)
     program->pc++;
 }
 
-void process_HALT(program_state_t* program, lexer_t* lexer)
+static void process_AND(program_state_t* program, lexer_t* lexer)
+{
+    token_t dst_token = lexer_next_token(lexer);
+    assert_register_token(lexer, dst_token);
+    token_t src_token = lexer_next_token(lexer);
+    assert_register_token(lexer, dst_token);
+    token_t src2_token = lexer_next_token(lexer);
+    if (src2_token.type != REGISTER && src2_token.type != SCALAR)
+        fatalf("Expected scalar or register token, but got: %d\n", src2_token.type);
+
+    if (src2_token.type == SCALAR) {
+        program->program[program->pc] = emit_AND_imm(dst_token.value.value, src_token.value.value, src2_token.value.value);
+    } else {
+        program->program[program->pc] = emit_AND_reg(dst_token.value.value, src_token.value.value, src2_token.value.value);
+    }
+    program->pc++;
+}
+
+static void process_LD(program_state_t* program, lexer_t* lexer)
+{
+    token_t dst_token = lexer_next_token(lexer);
+    assert_register_token(lexer, dst_token);
+    token_t pc_offset_token = lexer_next_token(lexer);
+    assert_scalar_token(lexer, pc_offset_token);
+
+    program->program[program->pc] = emit_LD(pc_offset_token.value.value, dst_token.value.value);
+    program->pc++;
+}
+
+static void process_ST(program_state_t* program, lexer_t* lexer)
+{
+    token_t src_token = lexer_next_token(lexer);
+    assert_register_token(lexer, src_token);
+    token_t pc_offset_token = lexer_next_token(lexer);
+    assert_scalar_token(lexer, pc_offset_token);
+
+    program->program[program->pc] = emit_ST(pc_offset_token.value.value, src_token.value.value);
+    program->pc++;
+}
+
+static void process_LDI(program_state_t* program, lexer_t* lexer)
+{
+    token_t dst_token = lexer_next_token(lexer);
+    assert_register_token(lexer, dst_token);
+    token_t pc_offset_token = lexer_next_token(lexer);
+    assert_scalar_token(lexer, pc_offset_token);
+
+    program->program[program->pc] = emit_LDI(pc_offset_token.value.value, dst_token.value.value);
+    program->pc++;
+}
+
+static void process_STI(program_state_t* program, lexer_t* lexer)
+{
+    token_t src_token = lexer_next_token(lexer);
+    assert_register_token(lexer, src_token);
+    token_t pc_offset_token = lexer_next_token(lexer);
+    assert_scalar_token(lexer, pc_offset_token);
+
+    program->program[program->pc] = emit_STI(pc_offset_token.value.value, src_token.value.value);
+    program->pc++;
+}
+
+static void process_LDR(program_state_t* program, lexer_t* lexer)
+{
+    token_t dst_token = lexer_next_token(lexer);
+    assert_register_token(lexer, dst_token);
+    token_t base_token = lexer_next_token(lexer);
+    assert_register_token(lexer, base_token);
+    token_t pc_offset_token = lexer_next_token(lexer);
+    assert_scalar_token(lexer, pc_offset_token);
+
+    program->program[program->pc] = emit_LDR(pc_offset_token.value.value, dst_token.value.value, base_token.value.value);
+    program->pc++;
+}
+
+static void process_STR(program_state_t* program, lexer_t* lexer)
+{
+    token_t src_token = lexer_next_token(lexer);
+    assert_register_token(lexer, src_token);
+    token_t base_token = lexer_next_token(lexer);
+    assert_register_token(lexer, base_token);
+    token_t pc_offset_token = lexer_next_token(lexer);
+    assert_scalar_token(lexer, pc_offset_token);
+
+    program->program[program->pc] = emit_STR(pc_offset_token.value.value, src_token.value.value, base_token.value.value);
+    program->pc++;
+}
+
+static void process_LEA(program_state_t* program, lexer_t* lexer)
+{
+    token_t dst_token = lexer_next_token(lexer);
+    assert_register_token(lexer, dst_token);
+    token_t pc_offset_token = lexer_next_token(lexer);
+    assert_scalar_token(lexer, pc_offset_token);
+
+    program->program[program->pc] = emit_LEA(pc_offset_token.value.value, dst_token.value.value);
+    program->pc++;
+}
+
+static void process_TRAP(program_state_t* program, lexer_t* lexer)
+{
+    token_t trap_code_token = lexer_next_token(lexer);
+    assert_scalar_token(lexer, trap_code_token);
+
+    program->program[program->pc] = emit_TRAP(trap_code_token.value.value);
+    program->pc++;
+}
+
+static void process_BR(program_state_t* program, lexer_t* lexer, char* command)
+{
+    token_t pc_offset_token = lexer_next_token(lexer);
+    assert_scalar_token(lexer, pc_offset_token);
+
+    bool positive = false;
+    bool zero = false;
+    bool negative = false;
+
+    char* flags = command + 2;
+    char c = flags[0];
+    while (c != '\0') {
+        switch (c) {
+        case 'p':
+            positive = true;
+            break;
+        case 'n':
+            negative = true;
+            break;
+        case 'z':
+            zero = true;
+            break;
+        default:
+            printf("Unknown character in branch instruction: %c", c);
+        }
+        flags++;
+        c = flags[0];
+    }
+
+    program->program[program->pc] = emit_BR(pc_offset_token.value.value, positive, zero, negative);
+    program->pc++;
+}
+
+static void process_JMP(program_state_t* program, lexer_t* lexer)
+{
+    token_t src_token = lexer_next_token(lexer);
+    assert_register_token(lexer, src_token);
+
+    program->program[program->pc] = emit_JMP(src_token.value.value);
+    program->pc++;
+}
+
+static void process_HALT(program_state_t* program, lexer_t* lexer)
 {
     (void)lexer;
     program->program[program->pc] = emit_TRAP(0x25);
 }
 
-void process_line(program_state_t* program, char* line)
+static void process_line(program_state_t* program, char* line)
 {
     // Skip comments.
     if (line[0] == ';')
@@ -142,13 +307,40 @@ void process_line(program_state_t* program, char* line)
         fatalf("Expected command, but was: %s", line);
     char* command = command_token.value.command;
 
-    if (strcmp(command, "ADD") == 0) {
+    if (strcmp(command, "NOT") == 0) {
+        process_NOT(program, &lexer);
+    } else if (strcmp(command, "ADD") == 0) {
         process_ADD(program, &lexer);
+    } else if (strcmp(command, "AND") == 0) {
+        process_AND(program, &lexer);
+    } else if (strcmp(command, "LD") == 0) {
+        process_LD(program, &lexer);
+    } else if (strcmp(command, "ST") == 0) {
+        process_ST(program, &lexer);
+    } else if (strcmp(command, "LDI") == 0) {
+        process_LDI(program, &lexer);
+    } else if (strcmp(command, "STI") == 0) {
+        process_STI(program, &lexer);
+    } else if (strcmp(command, "LDR") == 0) {
+        process_LDR(program, &lexer);
+    } else if (strcmp(command, "STR") == 0) {
+        process_STR(program, &lexer);
+    } else if (strcmp(command, "LEA") == 0) {
+        process_LEA(program, &lexer);
+    } else if (strcmp(command, "TRAP") == 0) {
+        process_TRAP(program, &lexer);
+    } else if (strcmp(command, "BR") == 0) {
+        process_BR(program, &lexer, command);
     } else if (strcmp(command, "HALT") == 0) {
-        printf("Got a HALT!\n");
+        process_HALT(program, &lexer);
+    } else if (strcmp(command, "JMP") == 0) {
+        process_JMP(program, &lexer);
     } else {
         printf("Unsupported instruction: %s\n", command);
     }
+
+    // Free the allocated command string.
+    free(command_token.value.command);
 }
 
 static program_state_t* program_state_new(void)
@@ -174,39 +366,39 @@ uint16_t* assembler_assemble_program(char* assembly)
     return program->program;
 }
 
-static char* file_read_text(const char* filename)
-{
-    FILE* f = fopen(filename, "r");
-    if (f == NULL) {
-        fprintf(stderr, "Failed to open file for reading: %s\n", filename);
-        return NULL;
-    }
-
-    // Seek to the end to get the file size.
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-
-    // Return back to the original for reading.
-    fseek(f, 0, SEEK_SET);
-
-    // Allocate an extra byte for null-termination.
-    char* contents = (char*)malloc(size + 1);
-    if (contents == NULL) {
-        fprintf(stderr, "Failed to allocate memory for file: %s", filename);
-        fclose(f);
-        return NULL;
-    }
-
-    fread(contents, 1, size, f);
-    fclose(f);
-
-    // Null-terminate the contents.
-    contents[size] = 0;
-    return contents;
-}
-
 uint16_t* assembler_assemble_file(char* filename)
 {
     char* assembly = file_read_text(filename);
     return assembler_assemble_program(assembly);
+}
+
+uint16_t* assembler_read_bin_file(char* filename)
+{
+    FILE* f = fopen(filename, "r");
+    if (f == NULL)
+        return NULL;
+
+    uint16_t* memory = (uint16_t*)calloc(65536, sizeof(*memory));
+    int count_read = fread(memory, sizeof(*memory), 65536, f);
+    fclose(f);
+    if (count_read != 65536) {
+        fprintf(stderr, "Error: Malformed binary file, expected 65536 entries, but got: %d\n", count_read);
+        free(memory);
+        return NULL;
+    }
+
+    return memory;
+}
+
+void assembler_write_bin_file(uint16_t* memory, char* filename)
+{
+    FILE* f = fopen(filename, "w");
+    if (f == NULL)
+        fatalf("Failed to open output file: %s", filename);
+
+    int write_count = fwrite(memory, sizeof(*memory), 65536, f);
+    if (write_count != 65536)
+        fatalf("Did not write the appropriate amount of bytes. Expected: 65536. Actual: %d", write_count);
+
+    fclose(f);
 }

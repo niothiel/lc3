@@ -9,7 +9,10 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/lc3",
-            "args": [],
+            "args": [
+                "run",
+                "prog/counter.s",
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             // "cwd": "${fileDirname}",
